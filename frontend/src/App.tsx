@@ -1,3 +1,13 @@
+/**
+ * VoiceTrace Main Application Component
+ * 
+ * Core application component that orchestrates the transcription workflow:
+ * - Manages input mode selection (file upload vs YouTube URL)
+ * - Handles file and URL input state
+ * - Coordinates API calls and progress tracking
+ * - Displays results and error states
+ * - Integrates theme switching functionality
+ */
 import { useState } from 'react'
 import { useTheme } from './hooks/useTheme'
 import Header from './components/Header'
@@ -7,26 +17,44 @@ import ResultView from './components/ResultView'
 import { transcribeFile, transcribeYoutube } from './services/api'
 import type { InputMode, ProgressState, TranscriptResult } from './types'
 
+/** Default idle state for progress indicator - used when no transcription is in progress */
 const IDLE_PROGRESS: ProgressState = { status: 'idle', percent: 0, message: '' }
 
 export default function App() {
   const { theme, toggle } = useTheme()
 
-  // Input state
+  // ──────────────────────────────────────────────────────────────────────────
+  // User Input State
+  // ──────────────────────────────────────────────────────────────────────────
+  /** Tracks which input method user has selected: file upload or YouTube URL */
   const [inputMode, setInputMode] = useState<InputMode>('upload')
+  /** File object when user selects a file for upload */
   const [file, setFile] = useState<File | null>(null)
+  /** YouTube URL entered by user */
   const [youtubeUrl, setYoutubeUrl] = useState('')
+  /** Language preference for transcription (defaults to auto-detect) */
   const [language, setLanguage] = useState('auto')
 
-  // Job state
+  // ──────────────────────────────────────────────────────────────────────────
+  // Job State
+  // ──────────────────────────────────────────────────────────────────────────
+  /** Tracks current progress: status, completion percentage, and user-facing message */
   const [progress, setProgress] = useState<ProgressState>(IDLE_PROGRESS)
+  /** Final transcription result with transcript segments and metadata */
   const [result, setResult] = useState<TranscriptResult | null>(null)
 
+  /** Computed flag indicating whether transcription is actively processing */
   const isProcessing =
     progress.status !== 'idle' &&
     progress.status !== 'done' &&
     progress.status !== 'error'
 
+  /**
+   * Handle transcription submission
+   * - Routes to file upload or YouTube URL transcription
+   * - Manages progress state updates
+   * - Handles errors with user-friendly messages
+   */
   const handleSubmit = async () => {
     setResult(null)
 
@@ -72,6 +100,10 @@ export default function App() {
     }
   }
 
+  /**
+   * Reset the application to initial state
+   * Clears all input fields, progress tracking, and results
+   */
   const handleReset = () => {
     setProgress(IDLE_PROGRESS)
     setResult(null)

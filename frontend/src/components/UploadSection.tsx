@@ -1,3 +1,12 @@
+/**
+ * Upload Section Component
+ * 
+ * Provides dual-mode input interface for transcription:
+ * - File upload mode: drag-and-drop and file picker with format validation
+ * - YouTube URL mode: paste YouTube link for direct transcription
+ * - Language selection dropdown for over 10 languages
+ * - Form submission handling with client-side validation
+ */
 import { useRef, useState, type DragEvent, type ChangeEvent } from 'react'
 import { UploadCloud, FileVideo, Youtube, Info, Sparkles } from 'lucide-react'
 import type { InputMode } from '../types'
@@ -15,6 +24,10 @@ interface UploadSectionProps {
   isDisabled: boolean
 }
 
+/**
+ * Supported languages for transcription
+ * Includes auto-detection and common languages used in video content
+ */
 const LANGUAGES = [
   { value: 'auto', label: '🌐  Auto Detect' },
   { value: 'en', label: '🇬🇧  English' },
@@ -28,6 +41,10 @@ const LANGUAGES = [
   { value: 'ar', label: '🇸🇦  Arabic' },
 ]
 
+/**
+ * Convert bytes to human-readable file size format
+ * Displays KB for files < 1 MB, otherwise shows MB
+ */
 function formatBytes(bytes: number) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`

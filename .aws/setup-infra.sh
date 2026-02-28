@@ -3,9 +3,10 @@ set -euo pipefail
 
 REGION="${AWS_REGION:-us-east-1}"
 APP_NAME="hte-anontokyo"
-LAMBDA_FUNCTION_NAME="hte-anontokyo-api"
+LAMBDA_FUNCTION_NAME="hte-anontokyo-api-image"
 LAMBDA_ROLE_NAME="hte-anontokyo-lambda-role"
-DIST_COMMENT="hte-anontokyo-lambda-cdn"
+DIST_COMMENT="hte-anontokyo-lambda-image-cdn"
+ECR_REPO="hte-anontokyo"
 
 ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
 ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${LAMBDA_ROLE_NAME}"
@@ -59,25 +60,36 @@ if ! aws logs describe-log-groups \
   aws logs create-log-group --log-group-name "$LOG_GROUP" --region "$REGION" >/dev/null
 fi
 
-# ── 3. Create bootstrap Lambda if missing ────────────────────────────────────
+# ── 3. Ensure ECR repo + image-based Lambda exists ───────────────────────────
 echo "3) Ensuring Lambda function exists: ${LAMBDA_FUNCTION_NAME}"
+if ! aws ecr describe-repositories --repository-names "$ECR_REPO" --region "$REGION" >/dev/null 2>&1; then
+  aws ecr create-repository \
+    --repository-name "$ECR_REPO" \
+    --region "$REGION" >/dev/null
+fi
+
+LATEST_TAG="$(aws ecr describe-images \
+  --repository-name "$ECR_REPO" \
+  --region "$REGION" \
+  --query 'sort_by(imageDetails,&imagePushedAt)[-1].imageTags[0]' \
+  --output text 2>/dev/null || true)"
+
+if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "None" ]; then
+  echo "   No image tags found in ECR repo '$ECR_REPO'."
+  echo "   Push at least one image first, then re-run this script."
+  exit 1
+fi
+
+IMAGE_URI="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${ECR_REPO}:${LATEST_TAG}"
 if ! aws lambda get-function --function-name "$LAMBDA_FUNCTION_NAME" --region "$REGION" >/dev/null 2>&1; then
-  TMP_DIR="$(mktemp -d)"
-  cat > "${TMP_DIR}/lambda_function.py" <<'PY'
-def lambda_handler(event, context):
-    return {"statusCode": 200, "body": "Bootstrap OK. Deploy app bundle via GitHub Actions."}
-PY
-  (cd "$TMP_DIR" && zip -q function.zip lambda_function.py)
   aws lambda create-function \
     --function-name "$LAMBDA_FUNCTION_NAME" \
-    --runtime python3.12 \
-    --handler lambda_function.lambda_handler \
+    --package-type Image \
+    --code "ImageUri=${IMAGE_URI}" \
     --role "$ROLE_ARN" \
     --timeout 900 \
     --memory-size 2048 \
-    --zip-file "fileb://${TMP_DIR}/function.zip" \
     --region "$REGION" >/dev/null
-  rm -rf "$TMP_DIR"
 fi
 echo "   Lambda ready: ${LAMBDA_FUNCTION_NAME}"
 
@@ -214,30 +226,14 @@ CF_DOMAIN="$(aws cloudfront get-distribution \
   --query 'Distribution.DomainName' \
   --output text)"
 
-# ── 7. S3 bucket for Lambda deployment bundles ───────────────────────────────
-echo "7) Ensuring S3 deploy bucket exists"
-DEPLOY_BUCKET="${APP_NAME}-lambda-deploy-${ACCOUNT_ID}-${REGION}"
-if ! aws s3api head-bucket --bucket "$DEPLOY_BUCKET" >/dev/null 2>&1; then
-  if [ "$REGION" = "us-east-1" ]; then
-    aws s3api create-bucket --bucket "$DEPLOY_BUCKET" >/dev/null
-  else
-    aws s3api create-bucket \
-      --bucket "$DEPLOY_BUCKET" \
-      --create-bucket-configuration "LocationConstraint=${REGION}" >/dev/null
-  fi
-fi
-echo "   Deploy bucket: ${DEPLOY_BUCKET}"
-
 echo ""
 echo "=== Setup complete ==="
 echo "Lambda Function:            ${LAMBDA_FUNCTION_NAME}"
 echo "Lambda Function URL:        ${FUNCTION_URL}"
 echo "CloudFront Distribution ID: ${DIST_ID}"
 echo "CloudFront Domain:          https://${CF_DOMAIN}"
-echo "Lambda Deploy Bucket:       ${DEPLOY_BUCKET}"
 echo ""
 echo "GitHub secrets to set:"
 echo "  AWS_ACCESS_KEY_ID"
 echo "  AWS_SECRET_ACCESS_KEY"
 echo "  CLOUDFRONT_DISTRIBUTION_ID=${DIST_ID}"
-echo "  LAMBDA_DEPLOY_BUCKET=${DEPLOY_BUCKET}"

@@ -101,6 +101,15 @@ aws lambda add-permission \
   --function-url-auth-type NONE \
   --region "$REGION" >/dev/null 2>&1 || true
 
+# Required since Oct 2025: both InvokeFunctionUrl and InvokeFunction
+aws lambda add-permission \
+  --function-name "$LAMBDA_FUNCTION_NAME" \
+  --statement-id "FunctionURLInvokeFunction" \
+  --action "lambda:InvokeFunction" \
+  --principal "*" \
+  --invoked-via-function-url \
+  --region "$REGION" >/dev/null 2>&1 || true
+
 FUNCTION_URL="$(aws lambda get-function-url-config \
   --function-name "$LAMBDA_FUNCTION_NAME" \
   --region "$REGION" \

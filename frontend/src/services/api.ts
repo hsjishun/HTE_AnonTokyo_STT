@@ -11,7 +11,7 @@
  * - POST /api/analyze/youtube - YouTube URL transcription
  */
 import axios, { AxiosError } from 'axios'
-import type { TranscriptResult, TTSResult, TTSVoice, VideoGenResult } from '../types'
+import type { TranscriptResult, TTSResult, TTSVoice, VideoGenResult, FullAnalysisResult, FullAnalysisFileOptions, FullAnalysisYoutubeOptions } from '../types'
 
 const api = axios.create({ baseURL: '/api' })
 

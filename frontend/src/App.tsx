@@ -16,8 +16,10 @@ import ProgressBar from './components/ProgressBar'
 import ResultView from './components/ResultView'
 import VoiceReport from './components/VoiceReport'
 import VideoGenerator from './components/VideoGenerator'
-import { transcribeFile, transcribeYoutube } from './services/api'
-import type { AppTab, InputMode, ProgressState, TranscriptResult } from './types'
+import AnalysisResultView from './components/AnalysisResultView'
+import { transcribeFile, transcribeYoutube, fullAnalysisFile, fullAnalysisYoutube } from './services/api'
+import type { AppTab, AnalysisMode, InputMode, ProgressState, TranscriptResult, FullAnalysisResult } from './types'
+
 
 /** Default idle state for progress indicator */
 const IDLE_PROGRESS: ProgressState = { status: 'idle', percent: 0, message: '' }
@@ -35,6 +37,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('transcribe')
 
   // ── Transcription State ───────────────────────────────────────────────────
+  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('transcribe')
   const [inputMode, setInputMode] = useState<InputMode>('upload')
   const [file, setFile] = useState<File | null>(null)
   const [youtubeUrl, setYoutubeUrl] = useState('')
@@ -48,35 +51,55 @@ export default function App() {
     progress.status !== 'done' &&
     progress.status !== 'error'
 
-  /** Handle transcription submission */
+  /** Handle transcription/analysis submission */
   const handleSubmit = async () => {
-    setResult(null)
+    setTranscriptResult(null)
+    setAnalysisResult(null)
     try {
-      if (inputMode === 'upload' && file) {
-        setProgress({ status: 'uploading', percent: 5, message: 'Uploading file…' })
-        const data = await transcribeFile({
-          file,
-          language,
-          onProgress: pct => {
-            if (pct < 100) {
-              setProgress({ status: 'uploading', percent: Math.round(pct * 0.35), message: 'Uploading file…' })
-            } else {
-              setProgress({ status: 'extracting', percent: 40, message: 'Extracting audio track…' })
-              setTimeout(() => {
-                setProgress({ status: 'transcribing', percent: 65, message: 'Transcribing with AI…' })
-              }, 800)
-            }
-          },
-        })
-        setProgress({ status: 'done', percent: 100, message: 'Transcription complete!' })
-        setResult(data)
-      } else if (inputMode === 'youtube' && youtubeUrl.trim()) {
-        setProgress({ status: 'uploading', percent: 10, message: 'Fetching YouTube video…' })
-        setTimeout(() => setProgress({ status: 'extracting', percent: 35, message: 'Extracting audio…' }), 1200)
-        setTimeout(() => setProgress({ status: 'transcribing', percent: 60, message: 'Transcribing with AI…' }), 3000)
-        const data = await transcribeYoutube({ url: youtubeUrl.trim(), language })
-        setProgress({ status: 'done', percent: 100, message: 'Transcription complete!' })
-        setResult(data)
+      if (analysisMode === 'full-analysis') {
+        // Full AI analysis mode
+        if (inputMode === 'upload' && file) {
+          setProgress({ status: 'uploading', percent: 5, message: 'Uploading file…' })
+          const data = await fullAnalysisFile({
+            file, language, usePlaceholder: false,
+            onProgress: pct => setProgress({ status: 'analyzing', percent: Math.round(pct * 0.4), message: 'Uploading…' }),
+          })
+          setProgress({ status: 'done', percent: 100, message: 'Analysis complete!' })
+          setAnalysisResult(data)
+        } else if (inputMode === 'youtube' && youtubeUrl.trim()) {
+          setProgress({ status: 'analyzing', percent: 20, message: 'Fetching & analysing video…' })
+          const data = await fullAnalysisYoutube({ url: youtubeUrl.trim(), language, usePlaceholder: false })
+          setProgress({ status: 'done', percent: 100, message: 'Analysis complete!' })
+          setAnalysisResult(data)
+        }
+      } else {
+        // Transcribe-only mode
+        if (inputMode === 'upload' && file) {
+          setProgress({ status: 'uploading', percent: 5, message: 'Uploading file…' })
+          const data = await transcribeFile({
+            file,
+            language,
+            onProgress: pct => {
+              if (pct < 100) {
+                setProgress({ status: 'uploading', percent: Math.round(pct * 0.35), message: 'Uploading file…' })
+              } else {
+                setProgress({ status: 'extracting', percent: 40, message: 'Extracting audio track…' })
+                setTimeout(() => {
+                  setProgress({ status: 'transcribing', percent: 65, message: 'Transcribing with AI…' })
+                }, 800)
+              }
+            },
+          })
+          setProgress({ status: 'done', percent: 100, message: 'Transcription complete!' })
+          setTranscriptResult(data)
+        } else if (inputMode === 'youtube' && youtubeUrl.trim()) {
+          setProgress({ status: 'uploading', percent: 10, message: 'Fetching YouTube video…' })
+          setTimeout(() => setProgress({ status: 'extracting', percent: 35, message: 'Extracting audio…' }), 1200)
+          setTimeout(() => setProgress({ status: 'transcribing', percent: 60, message: 'Transcribing with AI…' }), 3000)
+          const data = await transcribeYoutube({ url: youtubeUrl.trim(), language })
+          setProgress({ status: 'done', percent: 100, message: 'Transcription complete!' })
+          setTranscriptResult(data)
+        }
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'An unexpected error occurred.'
@@ -92,8 +115,6 @@ export default function App() {
     setFile(null)
     setYoutubeUrl('')
   }
-
-  const hasResult = transcriptResult || analysisResult
 
   return (
     <div className="app-wrapper">
@@ -129,9 +150,11 @@ export default function App() {
               </p>
             </section>
 
-            {!result && (
+            {!transcriptResult && !analysisResult && (
               <div className="glass-card">
                 <UploadSection
+                  analysisMode={analysisMode}
+                  onAnalysisModeChange={setAnalysisMode}
                   inputMode={inputMode}
                   onModeChange={setInputMode}
                   file={file}
@@ -146,12 +169,16 @@ export default function App() {
               </div>
             )}
 
-            {progress.status !== 'idle' && !result && (
+            {progress.status !== 'idle' && !transcriptResult && !analysisResult && (
               <ProgressBar progress={progress} />
             )}
 
-            {result && (
-              <ResultView result={result} onReset={handleReset} />
+            {analysisResult && (
+              <AnalysisResultView result={analysisResult} onReset={handleReset} />
+            )}
+
+            {transcriptResult && (
+              <ResultView result={transcriptResult} onReset={handleReset} />
             )}
           </>
         )}
@@ -168,7 +195,7 @@ export default function App() {
               </p>
             </section>
             <div className="glass-card">
-              <VoiceReport transcriptText={result?.full_text || ''} />
+              <VoiceReport transcriptText={transcriptResult?.full_text || ''} />
             </div>
           </>
         )}

@@ -34,3 +34,30 @@ class TranscriptResult(BaseModel):
 class YouTubeRequest(BaseModel):
     url: str
     language: str = "auto"
+
+
+# ── Body language analysis ────────────────────────────────────────────────────
+class BodyLanguageRequest(BaseModel):
+    url: str
+    gemini_api_key: str | None = None
+    model: str = "gemini-3.1-pro-preview"
+    segment_duration: int = 180
+
+
+class SegmentResult(BaseModel):
+    segment: int
+    start: str
+    end: str
+    file: str
+    chars: int
+    error: str | None = None
+
+
+class BodyLanguageResponse(BaseModel):
+    status: str = "success"
+    job_id: str
+    video_source: str
+    model: str
+    total_segments: int
+    segments: list[SegmentResult]
+    combined_report_path: str

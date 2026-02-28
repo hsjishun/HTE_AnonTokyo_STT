@@ -10,6 +10,9 @@ export type Theme = 'light' | 'dark'
 /** User input method selection */
 export type InputMode = 'upload' | 'youtube'
 
+/** Analysis mode: transcription only vs full AI analysis */
+export type AnalysisMode = 'transcribe' | 'full-analysis'
+
 /** Top-level navigation tabs */
 export type AppTab = 'transcribe' | 'voice-report' | 'video-gen'
 
@@ -102,4 +105,44 @@ export interface VideoGenResult {
   video_width?: number | null
   video_height?: number | null
   download_url?: string | null
+}
+
+// ── Full Analysis Types ───────────────────────────────────────────────────
+
+/** Individual body-language segment */
+export interface BodyLanguageSegment {
+  segment: number
+  start: string
+  end: string
+  markdown: string
+}
+
+/** Body language analysis report */
+export interface BodyLanguageReport {
+  segments: BodyLanguageSegment[]
+  combined_report: string
+  model: string
+}
+
+/** Combined full analysis result (body language + rubric + transcript) */
+export interface FullAnalysisResult {
+  is_placeholder: boolean
+  transcript?: TranscriptResult
+  body_language?: BodyLanguageReport
+  rubric_evaluation?: string
+}
+
+/** Options for file-based full analysis */
+export interface FullAnalysisFileOptions {
+  file: File
+  language: string
+  usePlaceholder: boolean
+  onProgress?: (pct: number) => void
+}
+
+/** Options for YouTube-based full analysis */
+export interface FullAnalysisYoutubeOptions {
+  url: string
+  language: string
+  usePlaceholder: boolean
 }

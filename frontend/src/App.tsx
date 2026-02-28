@@ -1,35 +1,44 @@
+/**
+ * VoiceTrace Main Application Component
+ * 
+ * Core application component that orchestrates:
+ * - Transcription workflow (file upload / YouTube URL → whisper-cli)
+ * - Voice Report generation (MiniMax TTS)
+ * - Concept Video generation (MiniMax Hailuo)
+ * - Tab-based navigation between features
+ */
 import { useState } from 'react'
+import { Mic, Volume2, Clapperboard } from 'lucide-react'
 import { useTheme } from './hooks/useTheme'
 import Header from './components/Header'
 import UploadSection from './components/UploadSection'
 import ProgressBar from './components/ProgressBar'
 import ResultView from './components/ResultView'
-import AnalysisResultView from './components/AnalysisResultView'
-import {
-  transcribeFile,
-  transcribeYoutube,
-  fullAnalysisFile,
-  fullAnalysisYoutube,
-} from './services/api'
-import type {
-  AnalysisMode,
-  InputMode,
-  ProgressState,
-  TranscriptResult,
-  FullAnalysisResult,
-} from './types'
+import VoiceReport from './components/VoiceReport'
+import VideoGenerator from './components/VideoGenerator'
+import { transcribeFile, transcribeYoutube } from './services/api'
+import type { AppTab, InputMode, ProgressState, TranscriptResult } from './types'
 
+/** Default idle state for progress indicator */
 const IDLE_PROGRESS: ProgressState = { status: 'idle', percent: 0, message: '' }
+
+const TABS: { key: AppTab; label: string; icon: typeof Mic }[] = [
+  { key: 'transcribe',   label: 'Transcribe',   icon: Mic },
+  { key: 'voice-report', label: 'Voice Report',  icon: Volume2 },
+  { key: 'video-gen',    label: 'Video Gen',     icon: Clapperboard },
+]
 
 export default function App() {
   const { theme, toggle } = useTheme()
 
-  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('full-analysis')
+  // ── Navigation ────────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<AppTab>('transcribe')
+
+  // ── Transcription State ───────────────────────────────────────────────────
   const [inputMode, setInputMode] = useState<InputMode>('upload')
   const [file, setFile] = useState<File | null>(null)
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const [language, setLanguage] = useState('auto')
-
   const [progress, setProgress] = useState<ProgressState>(IDLE_PROGRESS)
   const [transcriptResult, setTranscriptResult] = useState<TranscriptResult | null>(null)
   const [analysisResult, setAnalysisResult] = useState<FullAnalysisResult | null>(null)
@@ -39,85 +48,43 @@ export default function App() {
     progress.status !== 'done' &&
     progress.status !== 'error'
 
+  /** Handle transcription submission */
   const handleSubmit = async () => {
-    setTranscriptResult(null)
-    setAnalysisResult(null)
-
+    setResult(null)
     try {
-      if (analysisMode === 'transcribe') {
-        await handleTranscribe()
-      } else {
-        await handleFullAnalysis()
+      if (inputMode === 'upload' && file) {
+        setProgress({ status: 'uploading', percent: 5, message: 'Uploading file…' })
+        const data = await transcribeFile({
+          file,
+          language,
+          onProgress: pct => {
+            if (pct < 100) {
+              setProgress({ status: 'uploading', percent: Math.round(pct * 0.35), message: 'Uploading file…' })
+            } else {
+              setProgress({ status: 'extracting', percent: 40, message: 'Extracting audio track…' })
+              setTimeout(() => {
+                setProgress({ status: 'transcribing', percent: 65, message: 'Transcribing with AI…' })
+              }, 800)
+            }
+          },
+        })
+        setProgress({ status: 'done', percent: 100, message: 'Transcription complete!' })
+        setResult(data)
+      } else if (inputMode === 'youtube' && youtubeUrl.trim()) {
+        setProgress({ status: 'uploading', percent: 10, message: 'Fetching YouTube video…' })
+        setTimeout(() => setProgress({ status: 'extracting', percent: 35, message: 'Extracting audio…' }), 1200)
+        setTimeout(() => setProgress({ status: 'transcribing', percent: 60, message: 'Transcribing with AI…' }), 3000)
+        const data = await transcribeYoutube({ url: youtubeUrl.trim(), language })
+        setProgress({ status: 'done', percent: 100, message: 'Transcription complete!' })
+        setResult(data)
       }
     } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : 'An unexpected error occurred. Please try again.'
+      const message = err instanceof Error ? err.message : 'An unexpected error occurred.'
       setProgress({ status: 'error', percent: 0, message })
     }
   }
 
-  const handleTranscribe = async () => {
-    if (inputMode === 'upload' && file) {
-      setProgress({ status: 'uploading', percent: 5, message: 'Uploading file...' })
-      const data = await transcribeFile({
-        file,
-        language,
-        onProgress: pct => {
-          if (pct < 100) {
-            setProgress({ status: 'uploading', percent: Math.round(pct * 0.35), message: 'Uploading file...' })
-          } else {
-            setProgress({ status: 'extracting', percent: 40, message: 'Extracting audio track...' })
-            setTimeout(() => {
-              setProgress({ status: 'transcribing', percent: 65, message: 'Transcribing with AI...' })
-            }, 800)
-          }
-        },
-      })
-      setProgress({ status: 'done', percent: 100, message: 'Transcription complete!' })
-      setTranscriptResult(data)
-    } else if (inputMode === 'youtube' && youtubeUrl.trim()) {
-      setProgress({ status: 'uploading', percent: 10, message: 'Fetching YouTube video...' })
-      setTimeout(() => setProgress({ status: 'extracting', percent: 35, message: 'Extracting audio...' }), 1200)
-      setTimeout(() => setProgress({ status: 'transcribing', percent: 60, message: 'Transcribing with AI...' }), 3000)
-      const data = await transcribeYoutube({ url: youtubeUrl.trim(), language })
-      setProgress({ status: 'done', percent: 100, message: 'Transcription complete!' })
-      setTranscriptResult(data)
-    }
-  }
-
-  const handleFullAnalysis = async () => {
-    if (inputMode === 'upload' && file) {
-      setProgress({ status: 'uploading', percent: 5, message: 'Uploading file...' })
-      const data = await fullAnalysisFile({
-        file,
-        language,
-        usePlaceholder: true,
-        onProgress: pct => {
-          if (pct < 100) {
-            setProgress({ status: 'uploading', percent: Math.round(pct * 0.2), message: 'Uploading file...' })
-          } else {
-            setProgress({ status: 'analyzing', percent: 50, message: 'Analyzing body language & pedagogy...' })
-          }
-        },
-      })
-      setProgress({ status: 'done', percent: 100, message: 'Analysis complete!' })
-      setAnalysisResult(data)
-    } else if (inputMode === 'youtube' && youtubeUrl.trim()) {
-      setProgress({ status: 'uploading', percent: 10, message: 'Fetching YouTube video...' })
-      setTimeout(() => setProgress({ status: 'analyzing', percent: 40, message: 'Analyzing body language...' }), 1500)
-      setTimeout(() => setProgress({ status: 'evaluating', percent: 70, message: 'Running rubric evaluation...' }), 3000)
-      const data = await fullAnalysisYoutube({
-        url: youtubeUrl.trim(),
-        language,
-        usePlaceholder: true,
-      })
-      setProgress({ status: 'done', percent: 100, message: 'Analysis complete!' })
-      setAnalysisResult(data)
-    }
-  }
-
+  /** Reset transcription state */
   const handleReset = () => {
     setProgress(IDLE_PROGRESS)
     setTranscriptResult(null)
@@ -132,53 +99,100 @@ export default function App() {
     <div className="app-wrapper">
       <Header theme={theme} onToggle={toggle} />
 
+      {/* ── Tab Navigation ──────────────────────────────────────────────── */}
+      <nav className="tab-nav">
+        {TABS.map(tab => (
+          <button
+            key={tab.key}
+            className={`tab-btn ${activeTab === tab.key ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab.key)}
+          >
+            <tab.icon size={18} />
+            {tab.label}
+          </button>
+        ))}
+      </nav>
+
       <main className="main-content">
-        <section className="hero">
-          <div className="hero-eyebrow">Powered by AI</div>
-          <h1>
-            Teacher Performance<br />
-            <span>Analysis Dashboard</span>
-          </h1>
-          <p className="hero-desc">
-            Upload a classroom video or paste a YouTube link — get transcription,
-            body language analysis, and rubric-based evaluation powered by Gemini AI.
-          </p>
-        </section>
+        {/* ─── Tab: Transcribe ────────────────────────────────────────── */}
+        {activeTab === 'transcribe' && (
+          <>
+            <section className="hero">
+              <div className="hero-eyebrow">✦ Powered by AI</div>
+              <h1>
+                Turn any video into<br />
+                <span>accurate text</span>
+              </h1>
+              <p className="hero-desc">
+                Upload a video file or paste a YouTube link — we'll extract the audio
+                and transcribe it in seconds. Download as&nbsp;.txt, .srt, or&nbsp;.json.
+              </p>
+            </section>
 
-        {!hasResult && (
-          <div className="glass-card">
-            <UploadSection
-              analysisMode={analysisMode}
-              onAnalysisModeChange={setAnalysisMode}
-              inputMode={inputMode}
-              onModeChange={setInputMode}
-              file={file}
-              onFileChange={setFile}
-              youtubeUrl={youtubeUrl}
-              onYoutubeUrlChange={setYoutubeUrl}
-              language={language}
-              onLanguageChange={setLanguage}
-              onSubmit={handleSubmit}
-              isDisabled={isProcessing}
-            />
-          </div>
+            {!result && (
+              <div className="glass-card">
+                <UploadSection
+                  inputMode={inputMode}
+                  onModeChange={setInputMode}
+                  file={file}
+                  onFileChange={setFile}
+                  youtubeUrl={youtubeUrl}
+                  onYoutubeUrlChange={setYoutubeUrl}
+                  language={language}
+                  onLanguageChange={setLanguage}
+                  onSubmit={handleSubmit}
+                  isDisabled={isProcessing}
+                />
+              </div>
+            )}
+
+            {progress.status !== 'idle' && !result && (
+              <ProgressBar progress={progress} />
+            )}
+
+            {result && (
+              <ResultView result={result} onReset={handleReset} />
+            )}
+          </>
         )}
 
-        {progress.status !== 'idle' && !hasResult && (
-          <ProgressBar progress={progress} />
+        {/* ─── Tab: Voice Report (MiniMax TTS) ────────────────────────── */}
+        {activeTab === 'voice-report' && (
+          <>
+            <section className="hero compact">
+              <div className="hero-eyebrow">🔊 MiniMax Speech AI</div>
+              <h1>Voice Feedback Report</h1>
+              <p className="hero-desc">
+                Convert your transcript or any text into natural, expressive speech.
+                Choose a voice, emotion, and speed — powered by MiniMax TTS.
+              </p>
+            </section>
+            <div className="glass-card">
+              <VoiceReport transcriptText={result?.full_text || ''} />
+            </div>
+          </>
         )}
 
-        {transcriptResult && (
-          <ResultView result={transcriptResult} onReset={handleReset} />
-        )}
-
-        {analysisResult && (
-          <AnalysisResultView result={analysisResult} onReset={handleReset} />
+        {/* ─── Tab: Video Generation (MiniMax Hailuo) ─────────────────── */}
+        {activeTab === 'video-gen' && (
+          <>
+            <section className="hero compact">
+              <div className="hero-eyebrow">🎬 MiniMax Hailuo AI</div>
+              <h1>Concept Video Generator</h1>
+              <p className="hero-desc">
+                Describe a concept and our AI will generate a short explanation video.
+                Perfect for when complex topics need visual reinforcement.
+              </p>
+            </section>
+            <div className="glass-card">
+              <VideoGenerator />
+            </div>
+          </>
         )}
       </main>
 
       <footer className="footer">
-        HTE AnonTokyo — Teacher Performance Dashboard &nbsp;&middot;&nbsp; {new Date().getFullYear()}
+        VoiceTrace — HTE AnonTokyo &nbsp;·&nbsp; Powered by MiniMax &nbsp;·&nbsp; {new Date().getFullYear()}
       </footer>
     </div>
   )

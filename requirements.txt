@@ -11,3 +11,7 @@ python-dotenv
 openai>=1.30.0
 yt-dlp>=2024.5.0
 pydub>=0.25.1
+# Amazon Transcribe (legacy streaming endpoint)
+amazon-transcribe
+# Gemini body-language analysis
+google-genai>=1.0.0

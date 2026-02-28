@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     aws_region: str = "us-east-1"
     aws_access_key_id: str = ""
     aws_secret_access_key: str = ""
-    bedrock_model_id: str = "amazon.nova-sonic-v1:0"
+    transcribe_language_code: str = "en-US"
     fluctuation_window_seconds: int = 180
     temp_dir: str = tempfile.gettempdir()
 

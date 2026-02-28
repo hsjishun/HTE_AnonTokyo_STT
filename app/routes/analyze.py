@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, UploadFile
 from app.config import get_settings
 from app.schemas.response import AnalysisResponse, FluctuationWindow
 from app.services.audio_utils import extract_audio
-from app.services.bedrock_service import BedrockTranscriptionService
+from app.services.transcribe_service import TranscribeService
 from app.services.voice_analysis import calculate_fluctuation_timeline
 
 logger = logging.getLogger(__name__)
@@ -55,11 +55,9 @@ async def analyze_teaching(file: UploadFile) -> AnalysisResponse:
         # --- Run transcription and voice analysis concurrently ---------
         loop = asyncio.get_running_loop()
 
-        bedrock_svc = BedrockTranscriptionService(settings)
+        transcribe_svc = TranscribeService(settings)
 
-        transcript_future = loop.run_in_executor(
-            None, bedrock_svc.transcribe, wav_path,
-        )
+        transcript_future = transcribe_svc.transcribe(wav_path)
         analysis_future = loop.run_in_executor(
             None,
             calculate_fluctuation_timeline,
@@ -72,7 +70,7 @@ async def analyze_teaching(file: UploadFile) -> AnalysisResponse:
                 transcript_future, analysis_future,
             )
         except RuntimeError as exc:
-            logger.error("Bedrock / analysis error: %s", exc)
+            logger.error("Transcription / analysis error: %s", exc)
             raise HTTPException(status_code=502, detail=str(exc))
 
         timeline = [FluctuationWindow(**w) for w in timeline_raw]

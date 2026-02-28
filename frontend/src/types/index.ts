@@ -19,6 +19,8 @@ export type JobStatus =
   | 'uploading'
   | 'extracting'
   | 'transcribing'
+  | 'analyzing'
+  | 'evaluating'
   | 'done'
   | 'error'
 

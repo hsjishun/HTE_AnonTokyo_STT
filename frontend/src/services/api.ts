@@ -64,7 +64,7 @@ export async function transcribeFile({
   try {
     const { data } = await api.post<TranscriptResult>('/analyze', form, {
       headers: { 'Content-Type': 'multipart/form-data' },
-      timeout: 10 * 60 * 1000, // 10 min for long files
+      timeout: 10 * 60 * 1000,
       onUploadProgress(evt) {
         if (evt.total) {
           onProgress?.(Math.round((evt.loaded / evt.total) * 100))
@@ -92,7 +92,53 @@ export async function transcribeYoutube({
       url,
       language,
     }, {
-      timeout: 10 * 60 * 1000, // 10 min for download + transcribe
+      timeout: 10 * 60 * 1000,
+    })
+    return data
+  } catch (err) {
+    throw new Error(extractError(err))
+  }
+}
+
+export async function fullAnalysisFile({
+  file,
+  language,
+  usePlaceholder,
+  onProgress,
+}: FullAnalysisFileOptions): Promise<FullAnalysisResult> {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('language', language)
+  form.append('use_placeholder', String(usePlaceholder))
+
+  try {
+    const { data } = await api.post<FullAnalysisResult>('/full-analysis', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 30 * 60 * 1000,
+      onUploadProgress(evt) {
+        if (evt.total) {
+          onProgress?.(Math.round((evt.loaded / evt.total) * 100))
+        }
+      },
+    })
+    return data
+  } catch (err) {
+    throw new Error(extractError(err))
+  }
+}
+
+export async function fullAnalysisYoutube({
+  url,
+  language,
+  usePlaceholder,
+}: FullAnalysisYoutubeOptions): Promise<FullAnalysisResult> {
+  try {
+    const { data } = await api.post<FullAnalysisResult>('/full-analysis/youtube', {
+      url,
+      language,
+      use_placeholder: usePlaceholder,
+    }, {
+      timeout: 30 * 60 * 1000,
     })
     return data
   } catch (err) {

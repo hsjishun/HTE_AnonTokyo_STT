@@ -40,7 +40,8 @@ export default function App() {
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const [language, setLanguage] = useState('auto')
   const [progress, setProgress] = useState<ProgressState>(IDLE_PROGRESS)
-  const [result, setResult] = useState<TranscriptResult | null>(null)
+  const [transcriptResult, setTranscriptResult] = useState<TranscriptResult | null>(null)
+  const [analysisResult, setAnalysisResult] = useState<FullAnalysisResult | null>(null)
 
   const isProcessing =
     progress.status !== 'idle' &&
@@ -86,10 +87,13 @@ export default function App() {
   /** Reset transcription state */
   const handleReset = () => {
     setProgress(IDLE_PROGRESS)
-    setResult(null)
+    setTranscriptResult(null)
+    setAnalysisResult(null)
     setFile(null)
     setYoutubeUrl('')
   }
+
+  const hasResult = transcriptResult || analysisResult
 
   return (
     <div className="app-wrapper">

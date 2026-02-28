@@ -1,8 +1,10 @@
 import { useRef, useState, type DragEvent, type ChangeEvent } from 'react'
-import { UploadCloud, FileVideo, Youtube, Info, Sparkles } from 'lucide-react'
-import type { InputMode } from '../types'
+import { UploadCloud, FileVideo, Youtube, Info, Sparkles, Eye, FileText } from 'lucide-react'
+import type { AnalysisMode, InputMode } from '../types'
 
 interface UploadSectionProps {
+  analysisMode: AnalysisMode
+  onAnalysisModeChange: (m: AnalysisMode) => void
   inputMode: InputMode
   onModeChange: (m: InputMode) => void
   file: File | null
@@ -16,16 +18,16 @@ interface UploadSectionProps {
 }
 
 const LANGUAGES = [
-  { value: 'auto', label: '🌐  Auto Detect' },
-  { value: 'en', label: '🇬🇧  English' },
-  { value: 'zh', label: '🇨🇳  Chinese' },
-  { value: 'ja', label: '🇯🇵  Japanese' },
-  { value: 'ko', label: '🇰🇷  Korean' },
-  { value: 'fr', label: '🇫🇷  French' },
-  { value: 'de', label: '🇩🇪  German' },
-  { value: 'es', label: '🇪🇸  Spanish' },
-  { value: 'pt', label: '🇵🇹  Portuguese' },
-  { value: 'ar', label: '🇸🇦  Arabic' },
+  { value: 'auto', label: 'Auto Detect' },
+  { value: 'en', label: 'English' },
+  { value: 'zh', label: 'Chinese' },
+  { value: 'ja', label: 'Japanese' },
+  { value: 'ko', label: 'Korean' },
+  { value: 'fr', label: 'French' },
+  { value: 'de', label: 'German' },
+  { value: 'es', label: 'Spanish' },
+  { value: 'pt', label: 'Portuguese' },
+  { value: 'ar', label: 'Arabic' },
 ]
 
 function formatBytes(bytes: number) {
@@ -34,6 +36,8 @@ function formatBytes(bytes: number) {
 }
 
 export default function UploadSection({
+  analysisMode,
+  onAnalysisModeChange,
   inputMode,
   onModeChange,
   file,
@@ -66,8 +70,33 @@ export default function UploadSection({
 
   return (
     <>
-      {/* Mode Tabs */}
-      <div style={{ padding: '1.5rem 2rem 0', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      {/* Analysis Mode Toggle */}
+      <div style={{ padding: '1.5rem 2rem 0', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="tab-bar">
+          <button
+            className={`tab-btn ${analysisMode === 'full-analysis' ? 'active' : ''}`}
+            onClick={() => onAnalysisModeChange('full-analysis')}
+          >
+            <Eye />
+            Full Analysis
+          </button>
+          <button
+            className={`tab-btn ${analysisMode === 'transcribe' ? 'active' : ''}`}
+            onClick={() => onAnalysisModeChange('transcribe')}
+          >
+            <FileText />
+            Transcribe Only
+          </button>
+        </div>
+
+        {analysisMode === 'full-analysis' && (
+          <div className="yt-hint" style={{ justifyContent: 'center' }}>
+            <Info size={12} />
+            Body language analysis + rubric evaluation + transcription
+          </div>
+        )}
+
+        {/* Input Source Tabs */}
         <div className="tab-bar">
           <button
             className={`tab-btn ${inputMode === 'upload' ? 'active' : ''}`}
@@ -86,7 +115,6 @@ export default function UploadSection({
         </div>
       </div>
 
-      {/* Upload panel */}
       {inputMode === 'upload' && (
         <div className="upload-section">
           <div
@@ -128,7 +156,6 @@ export default function UploadSection({
         </div>
       )}
 
-      {/* YouTube panel */}
       {inputMode === 'youtube' && (
         <div className="yt-section">
           <div className="input-group">
@@ -148,7 +175,6 @@ export default function UploadSection({
         </div>
       )}
 
-      {/* Options row */}
       <div className="options-row">
         <div className="field-group">
           <label className="field-label">Language</label>
@@ -169,7 +195,7 @@ export default function UploadSection({
           disabled={!canSubmit}
         >
           <Sparkles />
-          Start Transcription
+          {analysisMode === 'full-analysis' ? 'Start Analysis' : 'Start Transcription'}
         </button>
       </div>
     </>

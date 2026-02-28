@@ -11,7 +11,7 @@
  * - POST /api/analyze/youtube - YouTube URL transcription
  */
 import axios, { AxiosError } from 'axios'
-import type { TranscriptResult, TTSResult, TTSVoice, VideoGenResult, FullAnalysisResult, FullAnalysisFileOptions, FullAnalysisYoutubeOptions } from '../types'
+import type { TranscriptResult, TTSResult, TTSVoice, VideoGenResult, FullAnalysisResult, FullAnalysisFileOptions, FullAnalysisYoutubeOptions, FeedbackRequest, FeedbackResult, DashboardData } from '../types'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
@@ -141,6 +141,33 @@ export async function fullAnalysisYoutube({
       use_placeholder: usePlaceholder,
     }, {
       timeout: 30 * 60 * 1000,
+    })
+    return data
+  } catch (err) {
+    throw new Error(extractError(err))
+  }
+}
+
+// ── Dashboard API ────────────────────────────────────────────────────────
+
+export async function fetchDashboard(): Promise<DashboardData> {
+  try {
+    const { data } = await api.get<DashboardData>('/dashboard')
+    return data
+  } catch (err) {
+    throw new Error(extractError(err))
+  }
+}
+
+// ── LLM Feedback API (Minimax) ──────────────────────────────────────────
+
+/**
+ * Generate teacher feedback from analysis data via Minimax LLM
+ */
+export async function generateFeedback(body: FeedbackRequest): Promise<FeedbackResult> {
+  try {
+    const { data } = await api.post<FeedbackResult>('/feedback', body, {
+      timeout: 5 * 60 * 1000,
     })
     return data
   } catch (err) {

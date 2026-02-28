@@ -9,15 +9,18 @@ import {
   ChevronDown,
   ChevronUp,
   Info,
+  MessageSquare,
+  Loader2,
 } from 'lucide-react'
 import type { FullAnalysisResult } from '../types'
+import { generateFeedback } from '../services/api'
 
 interface Props {
   result: FullAnalysisResult
   onReset: () => void
 }
 
-type ActiveTab = 'body-language' | 'rubric' | 'transcript'
+type ActiveTab = 'body-language' | 'rubric' | 'transcript' | 'feedback'
 
 function downloadBlob(content: string, filename: string, mime: string) {
   const blob = new Blob([content], { type: mime })
@@ -32,8 +35,30 @@ function downloadBlob(content: string, filename: string, mime: string) {
 export default function AnalysisResultView({ result, onReset }: Props) {
   const [activeTab, setActiveTab] = useState<ActiveTab>('body-language')
   const [expandedSegment, setExpandedSegment] = useState<number | null>(0)
+  const [feedback, setFeedback] = useState<string | null>(null)
+  const [feedbackModel, setFeedbackModel] = useState<string | null>(null)
+  const [feedbackLoading, setFeedbackLoading] = useState(false)
+  const [feedbackError, setFeedbackError] = useState<string | null>(null)
 
   const segments = result.body_language?.segments ?? []
+
+  async function handleGenerateFeedback() {
+    setFeedbackLoading(true)
+    setFeedbackError(null)
+    try {
+      const res = await generateFeedback({
+        transcript: result.transcript?.full_text,
+        body_language_report: result.body_language?.combined_report,
+        rubric_evaluation: result.rubric_evaluation ?? undefined,
+      })
+      setFeedback(res.feedback)
+      setFeedbackModel(res.model)
+    } catch (err) {
+      setFeedbackError(err instanceof Error ? err.message : 'Failed to generate feedback')
+    } finally {
+      setFeedbackLoading(false)
+    }
+  }
 
   return (
     <div className="glass-card result-section">
@@ -84,6 +109,15 @@ export default function AnalysisResultView({ result, onReset }: Props) {
             </span>
           </button>
         )}
+        <button
+          className={`view-tab ${activeTab === 'feedback' ? 'active' : ''}`}
+          onClick={() => setActiveTab('feedback')}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <MessageSquare size={13} /> AI Feedback
+            {feedback && <CheckCircle size={11} style={{ color: 'var(--accent)' }} />}
+          </span>
+        </button>
       </div>
 
       {activeTab === 'body-language' && (
@@ -132,6 +166,54 @@ export default function AnalysisResultView({ result, onReset }: Props) {
         </div>
       )}
 
+      {activeTab === 'feedback' && (
+        <div className="feedback-panel">
+          {!feedback && !feedbackLoading && (
+            <div className="feedback-prompt">
+              <p className="feedback-prompt-text">
+                Generate personalized, actionable feedback for the teacher based on all
+                available analysis data — transcript, body language, and rubric evaluation.
+              </p>
+              <button
+                className="btn-generate-feedback"
+                onClick={handleGenerateFeedback}
+                disabled={feedbackLoading}
+              >
+                <MessageSquare size={16} />
+                Generate AI Feedback
+              </button>
+            </div>
+          )}
+          {feedbackLoading && (
+            <div className="feedback-loading">
+              <Loader2 size={24} className="spinner" />
+              <p>Generating personalized feedback&hellip;</p>
+              <p className="feedback-loading-sub">This may take a minute.</p>
+            </div>
+          )}
+          {feedbackError && (
+            <div className="feedback-error">
+              <p>{feedbackError}</p>
+              <button className="btn-generate-feedback" onClick={handleGenerateFeedback}>
+                Retry
+              </button>
+            </div>
+          )}
+          {feedback && (
+            <>
+              {feedbackModel && (
+                <div className="feedback-meta">
+                  <span className="meta-chip"><Activity size={11} /> {feedbackModel}</span>
+                </div>
+              )}
+              <div className="transcript-box" style={{ maxHeight: '600px', whiteSpace: 'pre-wrap' }}>
+                {feedback}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       <div className="download-row">
         {result.body_language && (
           <button
@@ -159,6 +241,16 @@ export default function AnalysisResultView({ result, onReset }: Props) {
             }
           >
             <Download /> Rubric .md
+          </button>
+        )}
+        {feedback && (
+          <button
+            className="btn-download"
+            onClick={() =>
+              downloadBlob(feedback, 'teacher_feedback.md', 'text/markdown')
+            }
+          >
+            <Download /> Feedback .md
           </button>
         )}
         <button

@@ -8,9 +8,10 @@
  * - Tab-based navigation between features
  */
 import { useState } from 'react'
-import { Mic, Volume2, Clapperboard } from 'lucide-react'
+import { LayoutDashboard, Mic, Volume2, Clapperboard } from 'lucide-react'
 import { useTheme } from './hooks/useTheme'
 import Header from './components/Header'
+import Dashboard from './components/Dashboard'
 import UploadSection from './components/UploadSection'
 import ProgressBar from './components/ProgressBar'
 import ResultView from './components/ResultView'
@@ -25,6 +26,7 @@ import type { AppTab, AnalysisMode, InputMode, ProgressState, TranscriptResult, 
 const IDLE_PROGRESS: ProgressState = { status: 'idle', percent: 0, message: '' }
 
 const TABS: { key: AppTab; label: string; icon: typeof Mic }[] = [
+  { key: 'dashboard',    label: 'Dashboard',    icon: LayoutDashboard },
   { key: 'transcribe',   label: 'Transcribe',   icon: Mic },
   { key: 'voice-report', label: 'Voice Report',  icon: Volume2 },
   { key: 'video-gen',    label: 'Video Gen',     icon: Clapperboard },
@@ -34,10 +36,11 @@ export default function App() {
   const { theme, toggle } = useTheme()
 
   // ── Navigation ────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<AppTab>('transcribe')
+  const [activeTab, setActiveTab] = useState<AppTab>('dashboard')
 
   // ── Transcription State ───────────────────────────────────────────────────
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('transcribe')
+  const [usePlaceholder, setUsePlaceholder] = useState(true)
   const [inputMode, setInputMode] = useState<InputMode>('upload')
   const [file, setFile] = useState<File | null>(null)
   const [youtubeUrl, setYoutubeUrl] = useState('')
@@ -61,14 +64,14 @@ export default function App() {
         if (inputMode === 'upload' && file) {
           setProgress({ status: 'uploading', percent: 5, message: 'Uploading file…' })
           const data = await fullAnalysisFile({
-            file, language, usePlaceholder: false,
+            file, language, usePlaceholder,
             onProgress: pct => setProgress({ status: 'analyzing', percent: Math.round(pct * 0.4), message: 'Uploading…' }),
           })
           setProgress({ status: 'done', percent: 100, message: 'Analysis complete!' })
           setAnalysisResult(data)
         } else if (inputMode === 'youtube' && youtubeUrl.trim()) {
           setProgress({ status: 'analyzing', percent: 20, message: 'Fetching & analysing video…' })
-          const data = await fullAnalysisYoutube({ url: youtubeUrl.trim(), language, usePlaceholder: false })
+          const data = await fullAnalysisYoutube({ url: youtubeUrl.trim(), language, usePlaceholder })
           setProgress({ status: 'done', percent: 100, message: 'Analysis complete!' })
           setAnalysisResult(data)
         }
@@ -135,6 +138,11 @@ export default function App() {
       </nav>
 
       <main className="main-content">
+        {/* ─── Tab: Dashboard ─────────────────────────────────────────── */}
+        {activeTab === 'dashboard' && (
+          <Dashboard onNavigate={(tab) => setActiveTab(tab as AppTab)} />
+        )}
+
         {/* ─── Tab: Transcribe ────────────────────────────────────────── */}
         {activeTab === 'transcribe' && (
           <>
@@ -155,6 +163,8 @@ export default function App() {
                 <UploadSection
                   analysisMode={analysisMode}
                   onAnalysisModeChange={setAnalysisMode}
+                  usePlaceholder={usePlaceholder}
+                  onUsePlaceholderChange={setUsePlaceholder}
                   inputMode={inputMode}
                   onModeChange={setInputMode}
                   file={file}

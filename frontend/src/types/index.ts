@@ -14,7 +14,7 @@ export type InputMode = 'upload' | 'youtube'
 export type AnalysisMode = 'transcribe' | 'full-analysis'
 
 /** Top-level navigation tabs */
-export type AppTab = 'transcribe' | 'voice-report' | 'video-gen'
+export type AppTab = 'dashboard' | 'transcribe' | 'voice-report' | 'video-gen'
 
 /** Transcription job lifecycle states */
 export type JobStatus =
@@ -145,4 +145,44 @@ export interface FullAnalysisYoutubeOptions {
   url: string
   language: string
   usePlaceholder: boolean
+}
+
+// ── Dashboard Types ──────────────────────────────────────────────────────
+
+export interface ServiceStatus {
+  name: string
+  configured: boolean
+  label: string
+}
+
+export interface DashboardStats {
+  transcriptions: number
+  full_analyses: number
+  feedback_generated: number
+  uptime_seconds: number
+}
+
+export interface DashboardData {
+  status: string
+  version: string
+  services: ServiceStatus[]
+  stats: DashboardStats
+  capabilities: string[]
+}
+
+// ── LLM Feedback Types ──────────────────────────────────────────────────
+
+/** Feedback generation request */
+export interface FeedbackRequest {
+  transcript?: string
+  body_language_report?: string
+  rubric_evaluation?: string
+  additional_context?: string
+}
+
+/** Feedback generation response from Minimax LLM */
+export interface FeedbackResult {
+  status: string
+  feedback: string
+  model: string
 }

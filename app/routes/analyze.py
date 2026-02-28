@@ -32,7 +32,7 @@ from app.schemas.response import (
     YouTubeRequest,
 )
 from app.services.audio_utils import extract_audio
-from app.services.bedrock_service import BedrockTranscriptionService
+from app.services.transcribe_service import TranscribeService
 from app.services.voice_analysis import calculate_fluctuation_timeline
 from app.services.whisper_service import WhisperService
 from app.services.youtube_service import YouTubeDownloader, is_valid_youtube_url
@@ -235,6 +235,7 @@ async def analyze_teaching(file: UploadFile) -> AnalysisResponse:
                 transcript_future, analysis_future,
             )
         except RuntimeError as exc:
+            logger.error("Transcription / analysis error: %s", exc)
             raise HTTPException(status_code=502, detail=str(exc))
 
         timeline = [FluctuationWindow(**w) for w in timeline_raw]

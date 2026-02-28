@@ -214,14 +214,30 @@ CF_DOMAIN="$(aws cloudfront get-distribution \
   --query 'Distribution.DomainName' \
   --output text)"
 
+# ── 7. S3 bucket for Lambda deployment bundles ───────────────────────────────
+echo "7) Ensuring S3 deploy bucket exists"
+DEPLOY_BUCKET="${APP_NAME}-lambda-deploy-${ACCOUNT_ID}-${REGION}"
+if ! aws s3api head-bucket --bucket "$DEPLOY_BUCKET" >/dev/null 2>&1; then
+  if [ "$REGION" = "us-east-1" ]; then
+    aws s3api create-bucket --bucket "$DEPLOY_BUCKET" >/dev/null
+  else
+    aws s3api create-bucket \
+      --bucket "$DEPLOY_BUCKET" \
+      --create-bucket-configuration "LocationConstraint=${REGION}" >/dev/null
+  fi
+fi
+echo "   Deploy bucket: ${DEPLOY_BUCKET}"
+
 echo ""
 echo "=== Setup complete ==="
 echo "Lambda Function:            ${LAMBDA_FUNCTION_NAME}"
 echo "Lambda Function URL:        ${FUNCTION_URL}"
 echo "CloudFront Distribution ID: ${DIST_ID}"
 echo "CloudFront Domain:          https://${CF_DOMAIN}"
+echo "Lambda Deploy Bucket:       ${DEPLOY_BUCKET}"
 echo ""
 echo "GitHub secrets to set:"
 echo "  AWS_ACCESS_KEY_ID"
 echo "  AWS_SECRET_ACCESS_KEY"
 echo "  CLOUDFRONT_DISTRIBUTION_ID=${DIST_ID}"
+echo "  LAMBDA_DEPLOY_BUCKET=${DEPLOY_BUCKET}"

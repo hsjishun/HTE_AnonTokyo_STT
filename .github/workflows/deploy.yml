@@ -66,6 +66,18 @@ jobs:
             --function-name "$LAMBDA_FUNCTION_NAME" \
             --region "$AWS_REGION"
 
+      - name: Configure Lambda environment (API keys from GitHub Secrets)
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+        run: |
+          aws lambda update-function-configuration \
+            --function-name "$LAMBDA_FUNCTION_NAME" \
+            --region "$AWS_REGION" \
+            --environment "Variables={ELEVENLABS_API_KEY=$ELEVENLABS_API_KEY,GEMINI_API_KEY=$GEMINI_API_KEY,MINIMAX_API_KEY=$MINIMAX_API_KEY,MAX_UPLOAD_BYTES=524288000}" \
+            --output json > /dev/null
+
       - name: Invalidate CloudFront cache (if configured)
         env:
           CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}

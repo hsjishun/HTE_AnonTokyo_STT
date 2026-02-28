@@ -36,18 +36,6 @@ aws iam attach-role-policy \
   --policy-arn "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole" \
   >/dev/null || true
 
-# Optional SSM read access (if you later want to load secrets from SSM in code)
-aws iam put-role-policy \
-  --role-name "$LAMBDA_ROLE_NAME" \
-  --policy-name "HTEReadSSM" \
-  --policy-document "{
-    \"Version\": \"2012-10-17\",
-    \"Statement\": [{
-      \"Effect\": \"Allow\",
-      \"Action\": [\"ssm:GetParameter\", \"ssm:GetParameters\"],
-      \"Resource\": \"arn:aws:ssm:${REGION}:${ACCOUNT_ID}:parameter/hte/*\"
-    }]
-  }" >/dev/null
 echo "   Role ready: $ROLE_ARN"
 
 # ── 2. Ensure CloudWatch log group exists ────────────────────────────────────
@@ -93,49 +81,7 @@ if ! aws lambda get-function --function-name "$LAMBDA_FUNCTION_NAME" --region "$
 fi
 echo "   Lambda ready: ${LAMBDA_FUNCTION_NAME}"
 
-# ── 4. Configure Lambda env vars from SSM if available ──────────────────────
-echo "4) Syncing Lambda environment vars from SSM (if present)"
-get_param() {
-  local name="$1"
-  aws ssm get-parameter \
-    --name "$name" \
-    --with-decryption \
-    --region "$REGION" \
-    --query Parameter.Value \
-    --output text 2>/dev/null || true
-}
-
-OPENAI_API_KEY="$(get_param /hte/OPENAI_API_KEY)"
-GEMINI_API_KEY="$(get_param /hte/GEMINI_API_KEY)"
-MINIMAX_API_KEY="$(get_param /hte/MINIMAX_API_KEY)"
-
-ENV_FILE="$(mktemp)"
-OPENAI_API_KEY="$OPENAI_API_KEY" \
-GEMINI_API_KEY="$GEMINI_API_KEY" \
-MINIMAX_API_KEY="$MINIMAX_API_KEY" \
-python - <<'PY' > "$ENV_FILE"
-import json
-import os
-
-payload = {
-    "Variables": {
-        "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY", ""),
-        "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY", ""),
-        "MINIMAX_API_KEY": os.getenv("MINIMAX_API_KEY", ""),
-        "MAX_UPLOAD_BYTES": "524288000",
-    }
-}
-print(json.dumps(payload))
-PY
-
-aws lambda update-function-configuration \
-  --function-name "$LAMBDA_FUNCTION_NAME" \
-  --region "$REGION" \
-  --environment "file://${ENV_FILE}" \
-  >/dev/null
-rm -f "$ENV_FILE"
-
-# ── 5. Function URL (public) ─────────────────────────────────────────────────
+# ── 4. Function URL (public) ─────────────────────────────────────────────────
 echo "5) Ensuring Lambda Function URL exists"
 if ! aws lambda get-function-url-config \
   --function-name "$LAMBDA_FUNCTION_NAME" \
@@ -163,8 +109,8 @@ FUNCTION_URL="$(aws lambda get-function-url-config \
 FUNCTION_HOST="$(echo "$FUNCTION_URL" | sed -E 's#https://([^/]+)/?#\1#')"
 echo "   Function URL: $FUNCTION_URL"
 
-# ── 6. CloudFront distribution ───────────────────────────────────────────────
-echo "6) Ensuring CloudFront distribution exists"
+# ── 5. CloudFront distribution ───────────────────────────────────────────────
+echo "5) Ensuring CloudFront distribution exists"
 DIST_ID="$(aws cloudfront list-distributions \
   --query "DistributionList.Items[?Comment=='${DIST_COMMENT}'].Id | [0]" \
   --output text)"
@@ -233,7 +179,10 @@ echo "Lambda Function URL:        ${FUNCTION_URL}"
 echo "CloudFront Distribution ID: ${DIST_ID}"
 echo "CloudFront Domain:          https://${CF_DOMAIN}"
 echo ""
-echo "GitHub secrets to set:"
-echo "  AWS_ACCESS_KEY_ID"
-echo "  AWS_SECRET_ACCESS_KEY"
-echo "  CLOUDFRONT_DISTRIBUTION_ID=${DIST_ID}"
+echo "GitHub Secrets (Settings → Secrets and variables → Actions):"
+echo "  AWS_ACCESS_KEY_ID       - AWS deployer access key"
+echo "  AWS_SECRET_ACCESS_KEY   - AWS deployer secret key"
+echo "  ELEVENLABS_API_KEY     - ElevenLabs API key (Speech-to-Text)"
+echo "  GEMINI_API_KEY         - Google Gemini API key (body language, rubric)"
+echo "  MINIMAX_API_KEY        - Minimax API key (AI feedback)"
+echo "  CLOUDFRONT_DISTRIBUTION_ID = ${DIST_ID}"

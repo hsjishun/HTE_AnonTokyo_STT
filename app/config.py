@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     # Max bytes per Whisper API chunk (25 MB hard limit; we use 23 MB to be safe)
     whisper_chunk_bytes: int = 23 * 1024 * 1024
 
+    # ── Google Gemini (body language analysis) ──────────────────────────
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-3.1-pro-preview"
+
     # ── AWS (kept for voice-analysis / Bedrock features) ────────────────
     aws_region: str = "us-east-1"
     aws_access_key_id: str = ""

@@ -22,6 +22,8 @@ interface UploadSectionProps {
   onYoutubeUrlChange: (v: string) => void
   language: string
   onLanguageChange: (v: string) => void
+  usePlaceholder: boolean
+  onUsePlaceholderChange: (v: boolean) => void
   onSubmit: () => void
   isDisabled: boolean
 }
@@ -63,6 +65,8 @@ export default function UploadSection({
   onYoutubeUrlChange,
   language,
   onLanguageChange,
+  usePlaceholder,
+  onUsePlaceholderChange,
   onSubmit,
   isDisabled,
 }: UploadSectionProps) {
@@ -87,7 +91,6 @@ export default function UploadSection({
 
   return (
     <>
-      {/* Analysis Mode Toggle */}
       <div style={{ padding: '1.5rem 2rem 0', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <div className="tab-bar">
           <button
@@ -113,7 +116,6 @@ export default function UploadSection({
           </div>
         )}
 
-        {/* Input Source Tabs */}
         <div className="tab-bar">
           <button
             className={`tab-btn ${inputMode === 'upload' ? 'active' : ''}`}
@@ -205,6 +207,23 @@ export default function UploadSection({
             ))}
           </select>
         </div>
+
+        {analysisMode === 'full-analysis' && (
+          <div className="field-group" style={{ flex: 'none', minWidth: 'auto' }}>
+            <label className="field-label">Data Source</label>
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                className="toggle-checkbox"
+                checked={!usePlaceholder}
+                onChange={e => onUsePlaceholderChange(!e.target.checked)}
+              />
+              <span className="toggle-text">
+                {usePlaceholder ? 'Demo data' : 'Live analysis'}
+              </span>
+            </label>
+          </div>
+        )}
 
         <button
           className="btn-primary"

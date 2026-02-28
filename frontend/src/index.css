@@ -1079,6 +1079,59 @@ body {
 }
 
 /* ───────────────────────────────────────────────
+   Toggle switch (Data Source)
+─────────────────────────────────────────────── */
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  padding: 0.55rem 0;
+}
+
+.toggle-checkbox {
+  appearance: none;
+  width: 36px;
+  height: 20px;
+  border-radius: 99px;
+  background: var(--border-subtle);
+  border: 1px solid var(--border-glass);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  flex-shrink: 0;
+}
+
+.toggle-checkbox::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform 0.2s, background 0.2s;
+}
+
+.toggle-checkbox:checked {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.toggle-checkbox:checked::after {
+  transform: translateX(16px);
+  background: var(--text-inverse);
+}
+
+.toggle-text {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* ───────────────────────────────────────────────
    Footer
 ─────────────────────────────────────────────── */
 .footer {

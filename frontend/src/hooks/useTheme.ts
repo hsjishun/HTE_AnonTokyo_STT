@@ -18,7 +18,7 @@ export function useTheme() {
    * Priority: saved preference > system preference > default to light
    */
   const [theme, setTheme] = useState<Theme>(() => {
-    const saved = localStorage.getItem('voicetrace-theme')
+    const saved = localStorage.getItem('hte-theme')
     if (saved === 'light' || saved === 'dark') return saved
     return window.matchMedia('(prefers-color-scheme: dark)').matches
       ? 'dark'
@@ -28,7 +28,7 @@ export function useTheme() {
   useEffect(() => {
     const root = document.documentElement
     root.setAttribute('data-theme', theme)
-    localStorage.setItem('voicetrace-theme', theme)
+    localStorage.setItem('hte-theme', theme)
   }, [theme])
 
   /** Toggle between light and dark themes */

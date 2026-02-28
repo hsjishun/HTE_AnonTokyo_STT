@@ -15,13 +15,25 @@ window we measure two kinds of vocal variation:
 The two are combined into a single raw score:
     S = 0.6 * CV_pitch + 0.4 * CV_energy
 
-After all windows are scored, the raw values are min-max normalised to the
-[0, 100] range so the frontend receives an intuitive scale.
+Normalisation
+-------------
+Each window's raw score is mapped to 0-100 via the **normal CDF** (Φ):
+
+    score = Φ((S − μ) / σ) × 100
+
+where μ and σ are baseline parameters derived from typical classroom speech
+CVs (CV_pitch ≈ 0.10–0.35, CV_energy ≈ 0.30–0.90).
+
+This means every window is scored against an *absolute* reference rather than
+relative to other windows in the same recording.  A teacher with consistent
+delivery will receive similar scores across all windows instead of being
+artificially spread to 0 and 100.
 """
 
 from __future__ import annotations
 
 import logging
+import math
 
 import librosa
 import numpy as np
@@ -33,6 +45,18 @@ _FMIN = 65.0
 _FMAX = 600.0
 # Minimum number of voiced frames needed to trust a pitch CV estimate.
 _MIN_VOICED_FRAMES = 5
+
+# --- Normal-CDF scaling parameters ---
+# μ (mu): the raw score that maps to 50/100 — represents an "average" level
+# of classroom vocal variation.
+# Derived from typical ranges: CV_pitch ≈ 0.10-0.35, CV_energy ≈ 0.30-0.90
+#   Average teacher: S ≈ 0.6*0.20 + 0.4*0.55 = 0.34
+#   Below-average  : S ≈ 0.6*0.10 + 0.4*0.35 = 0.20  (monotone)
+#   Highly dynamic : S ≈ 0.6*0.35 + 0.4*0.85 = 0.55
+_NORM_MU = 0.30
+# σ (sigma): controls how quickly the score rises from 0→100.
+# With σ=0.15 the mapping is:  S=0.10 → ~9,  S=0.30 → 50,  S=0.55 → ~95
+_NORM_SIGMA = 0.15
 
 
 def _compute_cv_pitch(y: np.ndarray, sr: int) -> float:
@@ -134,18 +158,19 @@ def calculate_fluctuation_timeline(
 
         offset = end
 
-    # --- Min-max normalisation to [0, 100] ---
-    scores_arr = np.array(raw_scores)
-    s_min = float(scores_arr.min())
-    s_max = float(scores_arr.max())
-
-    if s_max - s_min < 1e-9:
-        normalised = [50.0] * len(raw_scores)
-    else:
-        normalised = [
-            round(float((s - s_min) / (s_max - s_min)) * 100, 2)
-            for s in raw_scores
-        ]
+    # --- Normal-CDF normalisation to [0, 100] ---
+    # Φ(z) = 0.5 * (1 + erf(z / √2))   where z = (S − μ) / σ
+    # Each window is scored against an absolute baseline so consistent
+    # teaching produces similar scores rather than a forced 0-to-100 spread.
+    normalised = [
+        round(
+            max(0.0, min(100.0,
+                50.0 * (1.0 + math.erf((s - _NORM_MU) / (_NORM_SIGMA * math.sqrt(2))))
+            )),
+            2,
+        )
+        for s in raw_scores
+    ]
 
     timeline = [
         {

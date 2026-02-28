@@ -7,5 +7,7 @@ numpy
 boto3
 pydantic-settings
 python-dotenv
-amazon-transcribe
-aiofile
+# STT & YouTube
+openai>=1.30.0
+yt-dlp>=2024.5.0
+pydub>=0.25.1

@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, UploadFile
 from app.config import get_settings
 from app.schemas.response import AnalysisResponse, FluctuationWindow
 from app.services.audio_utils import extract_audio
+from app.services.evaluation_service import EvaluationService
 from app.services.transcribe_service import TranscribeService
 from app.services.voice_analysis import calculate_fluctuation_timeline
 
@@ -73,12 +74,23 @@ async def analyze_teaching(file: UploadFile) -> AnalysisResponse:
             logger.error("Transcription / analysis error: %s", exc)
             raise HTTPException(status_code=502, detail=str(exc))
 
+        # --- Evaluate transcript against the teaching rubric -----------
+        eval_svc = EvaluationService(settings)
+        try:
+            evaluation = await loop.run_in_executor(
+                None, eval_svc.evaluate, transcript,
+            )
+        except RuntimeError as exc:
+            logger.error("Evaluation error: %s", exc)
+            raise HTTPException(status_code=502, detail=str(exc))
+
         timeline = [FluctuationWindow(**w) for w in timeline_raw]
 
         return AnalysisResponse(
             status="success",
             transcript=transcript,
             fluctuation_timeline=timeline,
+            evaluation=evaluation,
         )
 
     finally:

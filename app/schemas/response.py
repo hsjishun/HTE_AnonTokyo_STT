@@ -11,3 +11,4 @@ class AnalysisResponse(BaseModel):
     status: str = "success"
     transcript: str
     fluctuation_timeline: list[FluctuationWindow]
+    evaluation: str

@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     aws_access_key_id: str = ""
     aws_secret_access_key: str = ""
     transcribe_language_code: str = "en-US"
+    bedrock_evaluation_model_id: str = "amazon.nova-pro-v1:0"
     fluctuation_window_seconds: int = 180
     temp_dir: str = tempfile.gettempdir()
 

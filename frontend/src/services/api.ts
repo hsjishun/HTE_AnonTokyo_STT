@@ -11,7 +11,7 @@
  * - POST /api/analyze/youtube - YouTube URL transcription
  */
 import axios, { AxiosError } from 'axios'
-import type { TranscriptResult } from '../types'
+import type { TranscriptResult, TTSResult, TTSVoice, VideoGenResult } from '../types'
 
 const api = axios.create({ baseURL: '/api' })
 
@@ -94,6 +94,80 @@ export async function transcribeYoutube({
     }, {
       timeout: 10 * 60 * 1000, // 10 min for download + transcribe
     })
+    return data
+  } catch (err) {
+    throw new Error(extractError(err))
+  }
+}
+
+// ── MiniMax TTS API ──────────────────────────────────────────────────────
+
+/** Request options for TTS generation */
+export interface TTSOptions {
+  text: string
+  voice_id?: string
+  speed?: number
+  emotion?: string
+  language_boost?: string
+}
+
+/**
+ * Generate speech audio from text using MiniMax TTS
+ * Returns an audio URL playable in the browser
+ */
+export async function generateTTS(opts: TTSOptions): Promise<TTSResult> {
+  try {
+    const { data } = await api.post<TTSResult>('/tts', opts, {
+      timeout: 60 * 1000, // 1 min
+    })
+    return data
+  } catch (err) {
+    throw new Error(extractError(err))
+  }
+}
+
+/** Fetch available TTS voices */
+export async function getTTSVoices(): Promise<{ voices: TTSVoice[]; emotions: string[] }> {
+  try {
+    const { data } = await api.get<{ voices: TTSVoice[]; emotions: string[] }>('/tts/voices')
+    return data
+  } catch (err) {
+    throw new Error(extractError(err))
+  }
+}
+
+// ── MiniMax Video Generation API ─────────────────────────────────────────
+
+/** Request options for video generation */
+export interface VideoGenOptions {
+  prompt: string
+  duration?: number
+  resolution?: string
+  model?: string
+}
+
+/**
+ * Create a video generation task
+ * Returns task_id for polling status
+ */
+export async function generateVideo(opts: VideoGenOptions): Promise<{ task_id: string }> {
+  try {
+    const { data } = await api.post<{ task_id: string }>('/video/generate', opts, {
+      timeout: 30 * 1000,
+    })
+    return data
+  } catch (err) {
+    throw new Error(extractError(err))
+  }
+}
+
+/**
+ * Query video generation task status
+ * When status is 'Success', download_url will be available
+ */
+export async function getVideoStatus(taskId: string): Promise<VideoGenResult> {
+  try {
+    const { data } = await api.get<VideoGenResult>(`/video/status/${taskId}`)
     return data
   } catch (err) {
     throw new Error(extractError(err))
